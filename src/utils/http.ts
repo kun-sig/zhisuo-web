@@ -45,56 +45,46 @@ export const http = {
 
     async request<T>(url: string, options: RequestOptions = {}): Promise<T> {
         const { timeout = DEFAULT_TIMEOUT, skipAuth, headers, ...rest } = options;
-
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeout);
 
-        // 自动拼接 baseURL，避免重复斜杠
-        const finalUrl = url.startsWith('http') ? url : `${this.baseURL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
-
-        const finalHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-            ...headers,
-        };
-
-        if (!skipAuth) {
-            const token = http.getToken?.(); // 此处回调获取 token
-            if (token) {
-                finalHeaders['token'] = `${token}`;
-            }
-        }
-
         try {
+            const finalUrl = url.startsWith('http') ? url : new URL(url.replace(/^\/+/, ''), this.baseURL).toString();
+            const finalHeaders: Record<string, string> = { ...headers };
+
+            if (!skipAuth) {
+                const token = this.getToken?.();
+                if (token) finalHeaders['token'] = token;
+            }
+
+            if (!(rest.body instanceof FormData)) {
+                finalHeaders['Content-Type'] ??= 'application/json';
+            }
+
             const response = await fetch(finalUrl, {
                 ...rest,
                 headers: finalHeaders,
                 signal: controller.signal,
             });
 
-            clearTimeout(timer);
-            const contentType = response.headers.get('content-type') || '';
-
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new AppError(response.status, errorText || `请求失败，状态码：${response.status}`);
+                let errorBody: any;
+                try { errorBody = await response.clone().json(); } catch { errorBody = await response.text(); }
+                throw new AppError(response.status, errorBody?.message || errorBody || `请求失败，状态码：${response.status}`);
             }
 
+            const contentType = response.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
                 const json = await response.json() as ApiResponse<T>;
-                if (json.code !== 0) {
-                    throw new AppError(json.code, json.message || '接口调用失败');
-                }
+                if (json.code !== 0) throw new AppError(json.code, json.message || '接口调用失败');
                 return json.data;
             }
-
-            // 若不是 json，返回 blob
-            return response.blob() as unknown as T;
-
+            return response as unknown as T;
         } catch (error) {
-            clearTimeout(timer);
             if (error instanceof AppError) throw error;
-            // 网络错误/Abort 等统一封装为 AppError
             throw new AppError(-10000, (error as Error).message || '网络异常');
+        } finally {
+            clearTimeout(timer);
         }
     },
 
