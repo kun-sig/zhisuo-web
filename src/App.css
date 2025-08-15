@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* global.css */
+.scrollbar-overlay {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+.scrollbar-overlay::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-overlay::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+.scrollbar-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-modal .ant-modal-content {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.custom-modal .ant-modal-body {
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+}
